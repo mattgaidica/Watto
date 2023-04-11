@@ -32,12 +32,9 @@ void setup() {
     Serial.println("could not connect. Fix and Reboot");
   }
   // 20mA, 0.1ohm
-  INA.setMaxCurrentShunt(0.02, 0.1);
+  INA.setMaxCurrentShunt(0.01, 0.1);
   INA.setAverage(1);
   INA.setShuntVoltageConversionTime(3);
-
-  Serial.println("POWER2 = busVoltage x current\n");
-  Serial.println("BUS\tCURRENT\tPOWER\tPOWER2\tDELTA");
 
   if (!BLE.begin()) {
     Serial.println("Starting BLE failed!");
@@ -67,21 +64,27 @@ void loop() {
     dataSize = 0;
 
     while (central.connected()) {
-      if (dataSize == MAX_BUFFER_SIZE) {
-        sendData();
-        dataSize = 0;
-      }
+      // if (dataSize == MAX_BUFFER_SIZE) {
+      //   sendData();
+      //   dataSize = 0;
+      // }
 
-      if (dataSize < MAX_BUFFER_SIZE) {
+      // if (dataSize < MAX_BUFFER_SIZE) {
         uVoltage = INA.getShuntVoltage_uV();
         uCurrent = INA.getCurrent_uA();
-        uPower = INA.getPower_uW();
-        memcpy(&voltageData[dataSize], &uVoltage, sizeof(float));
-        memcpy(&currentData[dataSize], &uCurrent, sizeof(float));
-        memcpy(&powerData[dataSize], &uPower, sizeof(float));
-        dataSize += sizeof(float);
-        delay(5);
-      }
+        // uPower = INA.getPower_uW();
+        uPower = uVoltage * uCurrent;
+
+      voltageCharacteristic.writeValue(&uVoltage, sizeof(float));
+      currentCharacteristic.writeValue(&uCurrent, sizeof(float));
+      powerCharacteristic.writeValue(&uPower, sizeof(float));
+
+        // memcpy(&voltageData[dataSize], &uVoltage, sizeof(float));
+        // memcpy(&currentData[dataSize], &uCurrent, sizeof(float));
+        // memcpy(&powerData[dataSize], &uPower, sizeof(float));
+        // dataSize += sizeof(float);
+        delay(3);
+      // }
     }
 
     Serial.print("Disconnected from central: ");
@@ -93,12 +96,18 @@ void sendData() {
   if (dataSize == 0) return;
 
   size_t remainingData = dataSize;
-  uint8_t* dataPtr = currentData;
+  uint8_t* voltageDataPtr = voltageData;
+  uint8_t* currentDataPtr = currentData;
+  uint8_t* powerDataPtr = powerData;
 
   while (remainingData > 0) {
     size_t notifSize = min((size_t)20, remainingData); // Max 20 bytes per notification
-    currentCharacteristic.writeValue(dataPtr, notifSize);
-    dataPtr += notifSize;
+    voltageCharacteristic.writeValue(voltageDataPtr, notifSize);
+    currentCharacteristic.writeValue(currentDataPtr, notifSize);
+    powerCharacteristic.writeValue(powerDataPtr, notifSize);
+    voltageDataPtr += notifSize;
+    currentDataPtr += notifSize;
+    powerDataPtr += notifSize;
     remainingData -= notifSize;
   }
 }
