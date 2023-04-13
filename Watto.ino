@@ -6,7 +6,7 @@
 #include <Wire.h>
 #include <math.h>
 
-#define VERSION 230412 // yymmdd
+#define VERSION 230412  // yymmdd
 INA226 INA(0x40);
 
 // always send current, others are opt to make loop fast
@@ -28,6 +28,17 @@ BLECharacteristic powerCharacteristic("A003", BLERead | BLENotify, sizeof(float)
 
 float uVoltage = 0, uCurrent = 0, uPower = 0;
 
+// Linear model Poly3:
+//      f(x) = p1*x^3 + p2*x^2 + p3*x + p4
+// Coefficients (with 95% confidence bounds):
+//        p1 =  -3.312e-09  (-6.615e-09, -9.924e-12)
+//        p2 =   3.426e-05  (3.731e-06, 6.479e-05)
+//        p3 =       2.413  (2.341, 2.484)
+//        p4 =      -150.4  (-174.1, -126.7)
+float correctCurrent(float x) {
+  return -3.312e-09 * pow(x, 3) + 3.426e-05 * pow(x, 2) + 2.413 * x + -150.4;
+}
+
 void setup() {
   Serial.begin(115200);
   // while (!Serial);
@@ -37,7 +48,7 @@ void setup() {
     Serial.println("could not connect. Fix and Reboot");
   }
 
-  INA.setMaxCurrentShunt(0.05, 0.115);  // R=0.1ohm but empirically slightly different
+  INA.setMaxCurrentShunt(.02, 0.1);  // R=0.1ohm but empirically slightly different
   INA.setAverage(USE_AVG);
   INA.setShuntVoltageConversionTime(USE_SVCT);
 
@@ -67,7 +78,8 @@ void loop() {
     Serial.println(central.address());
 
     while (central.connected()) {
-      uCurrent = INA.getCurrent_uA();
+      uCurrent = correctCurrent(INA.getCurrent_uA());
+      Serial.println(uCurrent);
       currentCharacteristic.writeValue(&uCurrent, sizeof(float));
 
       if (SEND_VOLTAGE || SEND_POWER) {
@@ -82,7 +94,7 @@ void loop() {
         }
       }
       // delays minimal amount based on averaging/conversion time, but may be yoked by BLE
-      delay(loopDelayMs); 
+      delay(loopDelayMs);
     }
 
     Serial.print("Disconnected from central: ");
