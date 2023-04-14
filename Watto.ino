@@ -28,15 +28,19 @@ BLECharacteristic powerCharacteristic("A003", BLERead | BLENotify, sizeof(float)
 
 float uVoltage = 0, uCurrent = 0, uPower = 0;
 
-// Linear model Poly3:
-//      f(x) = p1*x^3 + p2*x^2 + p3*x + p4
+// Linear model Poly1:
+//      f(x) = p1*x + p2
 // Coefficients (with 95% confidence bounds):
-//        p1 =  -3.312e-09  (-6.615e-09, -9.924e-12)
-//        p2 =   3.426e-05  (3.731e-06, 6.479e-05)
-//        p3 =       2.413  (2.341, 2.484)
-//        p4 =      -150.4  (-174.1, -126.7)
+//        p1 =       2.499  (2.498, 2.501)
+//        p2 =        -156  (-160.6, -151.5)
+
+// Goodness of fit:
+//   SSE: 76.4
+//   R-square: 1
+//   Adjusted R-square: 1
+//   RMSE: 3.909
 float correctCurrent(float x) {
-  return -3.312e-09 * pow(x, 3) + 3.426e-05 * pow(x, 2) + 2.413 * x + -150.4;
+  return 2.499 * x - 170;
 }
 
 void setup() {
